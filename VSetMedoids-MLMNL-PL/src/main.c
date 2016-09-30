@@ -1,5 +1,6 @@
 // TODO:
 //  - implement statistic indexes
+//  - take constraints into account for all computations
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -100,6 +101,12 @@ int main(int argc, char **argv) {
         printf("[Error] theta < 0.\n");
         return 2;
     }
+    double sample_perc;
+    fscanf(cfgfile, "%lf", &sample_perc);
+    if(dlt(sample_perc, 0.0)) {
+        printf("[Error] sample_perc < 0.\n");
+        return 2;
+    }
     fclose(cfgfile);
     // reading config file end 
     freopen(out_file_name, "w", stdout);
@@ -113,6 +120,7 @@ int main(int argc, char **argv) {
     printf("Epsilon: %.15lf\n", epsilon);
     printf("Medoids cardinality: %d\n", medoids_card);
     printf("Theta: %.15lf\n", theta);
+    printf("Sample perc: %.15f\n", sample_perc);
     printf("###########################\n");
     // allocating memory start
     st_matrix *dmatrix = malloc(sizeof(st_matrix) * dmatrixc);
@@ -135,10 +143,11 @@ int main(int argc, char **argv) {
     size_t best_inst;
     double cur_adeq;
     double best_adeq;
-    model_init(objc, clustc, dmatrixc, medoids_card);
+    model_init(objc, clustc, dmatrixc, medoids_card, labels, classc);
     for(i = 1; i <= insts; ++i) {
         printf("Instance %d:\n", i);
-        cur_adeq = run(dmatrix, max_iter, epsilon, theta, mfuz);
+        cur_adeq = run(dmatrix, max_iter, epsilon, theta, mfuz,
+                    sample_perc);
         if(i == 1 || cur_adeq < best_adeq) {
             save_env();
             best_adeq = cur_adeq;
