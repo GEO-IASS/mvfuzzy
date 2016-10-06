@@ -71,9 +71,10 @@ void update_weights_md(st_matrix *weights, st_matrix *memb,
         }
         chi = 1.0 / chi;
         val = 1.0 / (double) abovec;
+        val = pow(chi * above, val);
         for(j = 0; j < dmatrixc; ++j) {
             if(v_vals[j] > theta) {
-                set(weights, k, j, pow(chi * above, val) / v_vals[j]);
+                set(weights, k, j, val / v_vals[j]);
             }
         }
     }
@@ -118,9 +119,10 @@ void update_weights_smd(st_matrix *weights, st_matrix *memb,
         }
         chi = 1.0 / chi;
         val = 1.0 / (double) abovec;
+        val = pow(chi * above, val);
         for(j = 0; j < dmatrixc; ++j) {
             if(v_vals[j] > theta) {
-                set(weights, k, j, pow(chi * above, val) / v_vals[j]);
+                set(weights, k, j, val / v_vals[j]);
             }
         }
     }

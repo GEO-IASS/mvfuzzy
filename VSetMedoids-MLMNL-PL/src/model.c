@@ -118,7 +118,7 @@ void update_memb_constr(st_matrix *dmatrix, double alpha) {
             mtx_a[i][k] = val;
             if(deq(val, 0.0)) {
                 set_a[i][k] = true;
-                ++set_a_c[i];
+                set_a_c[i] += 1;
             } else {
                 set_a[i][k] = false;
             }
@@ -431,7 +431,8 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         if(verbose) {
             print_medoids(medoids, clustc, dmatrixc, medoids_card);
         }
-        if(debug) {
+        // no need to check for first it in this model
+        if(debug && it) {
             cur_step_adeq = adequacy(dmatrix, mfuz, alpha);
             adeq_diff = prev_step_adeq - cur_step_adeq;
             if(adeq_diff < 0.0) {
