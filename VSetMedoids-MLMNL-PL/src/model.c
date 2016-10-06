@@ -9,7 +9,8 @@
 #include "stex.h"
 
 void model_init(int objc, int clustc, int dmatrixc,
-        int medoids_card, int *labels, int classc) {
+        int medoids_card, int *labels, int classc,
+        double sample_perc) {
     init_st_matrix(&weights, clustc, dmatrixc);
     init_st_matrix(&sav_weights, clustc, dmatrixc);
     init_st_matrix(&memb, objc, clustc);
@@ -27,10 +28,23 @@ void model_init(int objc, int clustc, int dmatrixc,
         }
     }
     medoids_ncol = medoids_card;
-    groups = asgroups(labels, objc, classc);
+
+    // generating constraints
+    st_matrix *groups = asgroups(labels, objc, classc);
     if(debug) {
         print_groups(groups);
     }
+    int **sample = gen_sample(groups, sample_perc);
+    print_header(" Sample ", HEADER_SIZE);
+    print_groups_(sample, classc);
+    free_st_matrix(groups);
+    free(groups);
+    constr = gen_constraints(sample, classc, objc);
+    print_constraints(constr, objc);
+    for(k = 0; k < classc; ++k) {
+        free(sample[k]);
+    }
+    free(sample);
 }
 
 void update_memb(st_matrix *dmatrix, double mfuzval) {
@@ -79,6 +93,219 @@ void update_memb(st_matrix *dmatrix, double mfuzval) {
     }
 }
 
+void update_memb_constr(st_matrix *dmatrix, double alpha) {
+    size_t c;
+    size_t e;
+    size_t i;
+    size_t j;
+    size_t k;
+    double mtx_a[memb.nrow][memb.ncol];
+    bool set_a[memb.nrow][memb.ncol];
+    size_t set_a_c[memb.nrow];
+    double val;
+    double dsum;
+    for(i = 0; i < memb.nrow; ++i) {
+        set_a_c[i] = 0;
+        for(k = 0; k < memb.ncol; ++k) {
+            val = 0.0;
+            for(j = 0; j < weights.ncol; ++j) {
+                dsum = 0.0;
+                for(e = 0; e < medoids_ncol; ++e) {
+                    dsum += get(&dmatrix[j], i, medoids[k][j][e]);
+                }
+                val += get(&weights, k, j) * dsum;
+            }
+            mtx_a[i][k] = val;
+            if(deq(val, 0.0)) {
+                set_a[i][k] = true;
+                ++set_a_c[i];
+            } else {
+                set_a[i][k] = false;
+            }
+        }
+    }
+    bool set_v[memb.nrow][memb.ncol];
+    double mtx_b[memb.nrow][memb.ncol];
+    int obj;
+    for(i = 0; i < memb.nrow; ++i) {
+        if(!set_a_c[i]) {
+            for(k = 0; k < memb.ncol; ++k) {
+                set_v[i][k] = true;
+                set_a[i][k] *= 2.0;
+                val = 0.0;
+                if(constr[i]) {
+                    for(e = 0; e < constr[i]->ml->size; ++e) {
+                        obj = constr[i]->ml->get[e];
+                        for(c = 0; c < memb.ncol; ++c) {
+                            if(c != k) {
+                                val += get(&memb, obj, c);
+                            }
+                        }
+                    }
+                    for(e = 0; e < constr[i]->mnl->size; ++e) {
+                        obj = constr[i]->mnl->get[e];
+                        val += get(&memb, obj, k);
+                    }
+                    val *= 2.0;
+                }
+                mtx_b[i][k] = alpha * val;
+            }
+        }
+    }
+    double sum_num;
+    double sum_den;
+    double gamma;
+    bool test;
+    do {
+        test = false;
+        for(i = 0; i < memb.nrow; ++i) {
+            if(!set_a_c[i]) {
+                sum_num = 0.0;
+                sum_den = 0.0;
+                for(k = 0; k < memb.ncol; ++k) {
+                    if(set_v[i][k]) {
+                        sum_num += mtx_b[i][k] / mtx_a[i][k];
+                        sum_den += 1.0 / mtx_a[i][k];
+                    }
+                }
+                gamma = (1.0 + sum_num) / sum_den;
+                for(k = 0; k < memb.ncol; ++k) {
+                    if(set_v[i][k]) {
+                        val = (gamma - mtx_b[i][k]) / mtx_a[i][k];
+                        if(dgt(val, 0.0)) {
+                            set(&memb, i, k, val);
+                        } else {
+                            set(&memb, i, k, 0.0);
+                            set_v[i][k] = false;
+                            test = true;
+                        }
+                    }
+                }
+            }
+        }
+    } while(test);
+    for(i = 0; i < memb.nrow; ++i) {
+        if(set_a_c[i]) {
+            val = 1.0 / (double) set_a_c[i];
+            for(k = 0; k < memb.ncol; ++k) {
+                if(set_a[i][k]) {
+                    set(&memb, i, k, val);
+                } else {
+                    set(&memb, i, k, 0.0);
+                }
+            }
+        }
+    }
+}
+
+void update_memb_constr_(st_matrix *dmatrix, double alpha) {
+    size_t c;
+    size_t e;
+    size_t i;
+    size_t j;
+    size_t k;
+    // indicates whether set_a[i][k] is inside A
+    bool set_a[memb.nrow][memb.ncol];
+    // cardinality of set_a[i]
+    size_t set_a_c[memb.nrow];
+    double mtx_a[memb.nrow][memb.ncol];
+    double val;
+    double dsum;
+    for(i = 0; i < memb.nrow; ++i) {
+        set_a_c[i] = 0;
+        for(k = 0; k < memb.ncol; ++k) {
+            val = 0.0;
+            for(j = 0; j < weights.ncol; ++j) {
+                dsum = 0.0;
+                for(e = 0; e < medoids_ncol; ++e) {
+                    dsum += get(&dmatrix[j], i, medoids[k][j][e]);
+                }
+                val += get(&weights, k, j) * dsum;
+            }
+            mtx_a[i][k] = val;
+            if(deq(val, 0.0)) {
+                set_a[i][k] = true;
+                set_a_c[i] += 1;
+            } else {
+                set_a[i][k] = false;
+            }
+        }
+    }
+    // indicates whether set_v[i][k] is inside V
+    bool set_v[memb.nrow][memb.ncol];
+    double mtx_b[memb.nrow][memb.ncol];
+    int obj;
+    for(i = 0; i < memb.nrow; ++i) {
+        if(!set_a_c[i]) {
+            for(k = 0; k < memb.ncol; ++k) {
+                set_v[i][k] = true;
+                mtx_a[i][k] *= 2.0;
+                val = 0.0;
+                if(constr[i]) {
+                    for(e = 0; e < constr[i]->ml->size; ++e) {
+                        obj = constr[i]->ml->get[e];
+                        for(c = 0; c < memb.ncol; ++c) {
+                            if(c != k) {
+                                val += get(&memb, obj, c);
+                            }
+                        }
+                    }
+                    for(e = 0; e < constr[i]->mnl->size; ++e) {
+                        obj = constr[i]->mnl->get[e];
+                        val += get(&memb, obj, k);
+                    }
+                    val *= 2.0;
+                }
+                mtx_b[i][k] = alpha * val;
+            }
+        }
+    }
+    double sum_num;
+    double sum_den;
+    double gamma;
+    bool test;
+    do {
+        test = false;
+        for(i = 0; i < memb.nrow; ++i) {
+            if(!set_a_c[i]) {
+                sum_num = 0.0;
+                sum_den = 0.0;
+                for(k = 0; k < memb.ncol; ++k) {
+                    if(set_v[i][k]) {
+                        sum_num += mtx_b[i][k] / mtx_a[i][k];
+                        sum_den += 1.0 / mtx_a[i][k];
+                    }
+                }
+                gamma = (1.0 + sum_num) / sum_den;
+                for(k = 0; k < memb.ncol; ++k) {
+                    if(set_v[i][k]) {
+                        val = (gamma - mtx_b[i][k]) / mtx_a[i][k];
+                        if(!dgt(val, 0.0)) {
+                            set(&memb, i, k, 0.0);
+                            set_v[i][k] = false;
+                            test = true;
+                        } else {
+                            set(&memb, i, k, val);
+                        }
+                    }
+                }
+            }
+        }
+    } while(test);
+    for(i = 0; i < memb.nrow; ++i) {
+        if(set_a_c[i]) {
+            val = 1.0 / set_a_c[i];
+            for(k = 0; k < memb.ncol; ++k) {
+                if(set_a[i][k]) {
+                    set(&memb, i, k, val);
+                } else {
+                    set(&memb, i, k, 0.0);
+                }
+            }
+        }
+    }
+}
+
 void print_memb(st_matrix *memb) {
 	print_header("Membership", HEADER_SIZE);
 	size_t i;
@@ -100,7 +327,38 @@ void print_memb(st_matrix *memb) {
 	}
 }
 
-double adequacy(st_matrix *dmatrix, double mfuz) {
+double constr_adequacy(st_matrix *dmatrix, double alpha) {
+    size_t c;
+    size_t e;
+    size_t i;
+    size_t k;
+    int obj;
+    double adeq = 0.0;
+    for(i = 0; i < memb.nrow; ++i) {
+        if(constr[i]) {
+            for(e = 0; e < constr[i]->ml->size; ++e) {
+                obj = constr[i]->ml->get[e];
+                for(c = 0; c < memb.ncol; ++c) {
+                    for(k = 0; k < memb.ncol; ++k) {
+                        if(c != k) {
+                            adeq += get(&memb, obj, c) *
+                                        get(&memb, obj, k);
+                        }
+                    }
+                }
+            }
+            for(e = 0; e < constr[i]->mnl->size; ++e) {
+                obj = constr[i]->mnl->get[e];
+                for(c = 0; c < memb.ncol; ++c) {
+                    adeq += get(&memb, obj, c) * get(&memb, obj, c);
+                }
+            }
+        }
+    }
+    return adeq;
+}
+
+double adequacy(st_matrix *dmatrix, double mfuz, double alpha) {
     size_t e;
     size_t i;
     size_t j;
@@ -121,7 +379,11 @@ double adequacy(st_matrix *dmatrix, double mfuz) {
             adeq += pow(get(&memb, i, k), mfuz) * wsum;
         }
     }
-    return adeq;
+    double cadeq = constr_adequacy(dmatrix, alpha);
+    if(debug) {
+        printf("[Debug]Adequacy: %.15lf %.15lf\n", adeq, cadeq);
+    }
+    return adeq + cadeq;
 }
 
 void save_env() {
@@ -141,35 +403,23 @@ void print_env() {
 }
 
 double run(st_matrix *dmatrix, int max_iter, double epsilon,
-        double theta, double mfuz, double sample_perc) {
+        double theta, double mfuz, double alpha) {
     double mfuzval = 1.0 / (mfuz - 1.0);
     int objc = memb.nrow;
     int clustc = memb.ncol;
     int medoids_card = medoids_ncol;
     int dmatrixc = weights.ncol;
-    size_t classc = groups->nrow;
-
-    // generating constraints
-    int **sample = gen_sample(groups, sample_perc);
-    print_header(" Sample ", HEADER_SIZE);
-    print_groups_(sample, classc);
-    constraint **constr = gen_constraints(sample, classc, objc);
-    print_constraints(constr, objc);
-    size_t k;
-    for(k = 0; k < classc; ++k) {
-        free(sample[k]);
-    }
-    free(sample);
 
     init_weights(&weights);
     print_weights(&weights);
     init_medoids(medoids, objc, clustc, dmatrixc, medoids_card);
     print_medoids(medoids, clustc, dmatrixc, medoids_card);
+//    update_memb_constr(dmatrix, mfuzval, alpha);
     update_memb(dmatrix, mfuzval);
     print_memb(&memb);
-    double prev_adeq = adequacy(dmatrix, mfuz);
+    double prev_adeq = adequacy(dmatrix, mfuz, alpha);
     printf("\nAdequacy: %.15lf\n", prev_adeq);
-    double cur_adeq;
+    double cur_adeq = 0.0;
     double prev_step_adeq = prev_adeq; // for debug
     double cur_step_adeq; // for debug
     double adeq_diff;
@@ -182,7 +432,7 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
             print_medoids(medoids, clustc, dmatrixc, medoids_card);
         }
         if(debug) {
-            cur_step_adeq = adequacy(dmatrix, mfuz);
+            cur_step_adeq = adequacy(dmatrix, mfuz, alpha);
             adeq_diff = prev_step_adeq - cur_step_adeq;
             if(adeq_diff < 0.0) {
                 printf("[Warn] current step adequacy is greater than "
@@ -196,7 +446,7 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
             print_weights(&weights);
         }
         if(debug) {
-            cur_step_adeq = adequacy(dmatrix, mfuz);
+            cur_step_adeq = adequacy(dmatrix, mfuz, alpha);
             adeq_diff = prev_step_adeq - cur_step_adeq;
             if(adeq_diff < 0.0) {
                 printf("[Warn] current step adequacy is greater than "
@@ -204,11 +454,21 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
             }
             prev_step_adeq = cur_step_adeq;
         }
-        update_memb(dmatrix, mfuzval);
+        update_memb_constr(dmatrix, alpha);
+//        update_memb(dmatrix, mfuzval);
         if(verbose) {
             print_memb(&memb);
         }
-        cur_adeq = adequacy(dmatrix, mfuz);
+        cur_adeq = adequacy(dmatrix, mfuz, alpha);
+        if(debug) {
+            cur_step_adeq = cur_adeq;
+            adeq_diff = prev_step_adeq - cur_step_adeq;
+            if(adeq_diff < 0.0) {
+                printf("[Warn] current step adequacy is greater than "
+                        "previous (%.15lf)\n", - adeq_diff);
+            }
+            prev_step_adeq = cur_step_adeq;
+        }
         adeq_diff = prev_adeq - cur_adeq;
         printf("\nAdequacy: %.15lf (%.15lf)\n", cur_adeq, adeq_diff);
         if(debug) {
@@ -216,28 +476,13 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
                 printf("[Warn] current iteration adequacy is greater "
                         "than previous (%.15lf)\n", - adeq_diff);
             }
-            adeq_diff = prev_step_adeq - cur_adeq; // cur_step_adeq
-            if(adeq_diff < 0.0) {
-                printf("[Warn] current step adequacy is greater than "
-                        "previous (%.15lf)\n", - adeq_diff);
-            }
-            prev_step_adeq = cur_adeq;
         }
-        if(adeq_diff < epsilon) {
+        if(fabs(adeq_diff) < epsilon) {
             printf("Adequacy coefficient difference reached in %d "
                     "iterations.\n", it);
             break;
         }
         prev_adeq = cur_adeq;
-    }
-    size_t i;
-    if(constr) {
-        for(i = 0; i < objc; ++i) {
-            if(constr[i]) {
-                constraint_free(constr[i]);
-            }
-        }
-        free(constr);
     }
     printf("\nClustering process finished.\n");
     print_weights(&weights);
@@ -247,9 +492,10 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
 }
 
 void model_free() {
+    size_t i;
+    size_t j;
+    size_t k;
     if(medoids) {
-        size_t j;
-        size_t k;
         for(k = 0; k < memb.ncol; ++k) {
             if(medoids[k]) {
                 for(j = 0; j < weights.ncol; ++j) {
@@ -263,8 +509,6 @@ void model_free() {
         free(medoids);
     }
     if(sav_medoids) {
-        size_t j;
-        size_t k;
         for(k = 0; k < memb.ncol; ++k) {
             if(sav_medoids[k]) {
                 for(j = 0; j < weights.ncol; ++j) {
@@ -277,13 +521,17 @@ void model_free() {
         }
         free(sav_medoids);
     }
+    if(constr) {
+        for(i = 0; i < memb.nrow; ++i) {
+            if(constr[i]) {
+                constraint_free(constr[i]);
+            }
+        }
+        free(constr);
+    }
     free_st_matrix(&weights);
     free_st_matrix(&sav_weights);
     free_st_matrix(&memb);
     free_st_matrix(&sav_memb);
-    if(groups) {
-        free_st_matrix(groups);
-        free(groups);
-    }
 }
 

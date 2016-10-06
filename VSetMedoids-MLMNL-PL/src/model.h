@@ -23,12 +23,15 @@ st_matrix weights;
 st_matrix memb;
 size_t ***medoids;
 size_t medoids_ncol;
+// constraints for each object
+constraint **constr;
 // objects divided by groups (from labels)
-st_matrix *groups;
+//st_matrix *groups;
 
 // Allocates memory for weights, medoids and memb
 void model_init(int objc, int clustc, int dmatrixc,
-        int medoids_card, int *labels, int classc);
+        int medoids_card, int *labels, int classc,
+        double sample_perc);
 
 // Saves current weights, medoids and memb
 void save_env();
@@ -39,7 +42,7 @@ void print_env();
 
 // Main loop
 double run(st_matrix *dmatrix, int max_iter, double epsilon,
-        double theta, double mfuz, double sample_perc);
+        double theta, double mfuz, double alpha);
 
 // Frees weights, medoids and memb
 void model_free();

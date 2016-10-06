@@ -28,7 +28,7 @@ bool debug;
 
 int main(int argc, char **argv) {
     debug = true;
-    verbose = false;
+    verbose = true;
     FILE *cfgfile = fopen(argv[1], "r");
     if(!cfgfile) {
         printf("[Error] Could not open config file.\n");
@@ -107,6 +107,12 @@ int main(int argc, char **argv) {
         printf("[Error] sample_perc < 0.\n");
         return 2;
     }
+    double alpha;
+    fscanf(cfgfile, "%lf", &alpha);
+    if(dlt(alpha, 0.0)) {
+        printf("[Error] alpha < 0.\n");
+        return 2;
+    }
     fclose(cfgfile);
     // reading config file end 
     freopen(out_file_name, "w", stdout);
@@ -121,6 +127,7 @@ int main(int argc, char **argv) {
     printf("Medoids cardinality: %d\n", medoids_card);
     printf("Theta: %.15lf\n", theta);
     printf("Sample perc: %.15f\n", sample_perc);
+    printf("Alpha: %.15lf\n", alpha);
     printf("###########################\n");
     // allocating memory start
     st_matrix *dmatrix = malloc(sizeof(st_matrix) * dmatrixc);
@@ -140,14 +147,15 @@ int main(int argc, char **argv) {
 //        print_st_matrix(&dmatrix[j], 4, false);
 //    }
     srand(time(NULL));
+//    srand(1234);
     size_t best_inst;
     double cur_adeq;
     double best_adeq;
-    model_init(objc, clustc, dmatrixc, medoids_card, labels, classc);
+    model_init(objc, clustc, dmatrixc, medoids_card, labels, classc,
+            sample_perc);
     for(i = 1; i <= insts; ++i) {
         printf("Instance %d:\n", i);
-        cur_adeq = run(dmatrix, max_iter, epsilon, theta, mfuz,
-                    sample_perc);
+        cur_adeq = run(dmatrix, max_iter, epsilon, theta, mfuz, alpha);
         if(i == 1 || cur_adeq < best_adeq) {
             save_env();
             best_adeq = cur_adeq;
