@@ -70,7 +70,6 @@ void update_medoids_lw(size_t ***medoids, int medoids_card,
     size_t clustc = memb->ncol;
     objnval candidates[objc];
     double val;
-    double dsum;
     for(k = 0; k < clustc; ++k) {
         for(j = 0; j < dmatrixc; ++j) {
             for(h = 0; h < objc; ++h) {
