@@ -1,6 +1,5 @@
 // TODO:
 //  - implement statistic indexes
-//  - take constraints into account for all computations
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>

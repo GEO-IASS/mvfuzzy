@@ -93,6 +93,81 @@ void update_memb(st_matrix *dmatrix, double mfuzval) {
     }
 }
 
+void update_memb_constr_(st_matrix *dmatrix, double alpha) {
+    size_t c;
+    size_t e;
+    size_t i;
+    size_t j;
+    size_t k;
+    bool set_v[memb.ncol];
+    double mtx_a[memb.ncol];
+    double mtx_b[memb.ncol];
+    double sum_num;
+    double sum_den;
+    double val;
+    int obj;
+    double gamma;
+    bool changed;
+    for(i = 0; i < memb.nrow; ++i) {
+        for(k = 0; k < memb.ncol; ++k) {
+            mtx_a[k] = 0.0;
+            for(j = 0; j < weights.ncol; ++j) {
+                val = 0.0;
+                for(e = 0; e < medoids_ncol; ++e) {
+                    val += get(&dmatrix[j], i, medoids[k][j][e]);
+                }
+                mtx_a[k] += get(&weights, k, j) * val;
+            }
+            mtx_a[k] *= 2.0;
+        }
+        for(k = 0; k < memb.ncol; ++k) {
+            set_v[k] = true;
+        }
+    }
+    do {
+        changed = false;
+        for(i = 0; i < memb.nrow; ++i) {
+            sum_num = 1.0;
+            sum_den = 0.0;
+            for(k = 0; k < memb.ncol; ++k) {
+                val = 0.0;
+                if(constr[i]) {
+                    for(e = 0; e < constr[i]->ml->size; ++e) {
+                        obj = constr[i]->ml->get[e];
+                        for(c = 0; c < memb.ncol; ++c) {
+                            if(c != k) {
+                                val += get(&memb, obj, c);
+                            }
+                        }
+                    }
+                    for(e = 0; e < constr[i]->mnl->size; ++e) {
+                        obj = constr[i]->mnl->get[e];
+                        val += get(&memb, obj, k);
+                    }
+                    val *= alpha;
+                }
+                mtx_b[k] = val;
+                if(set_v[k]) {
+                    sum_num += mtx_b[k] / mtx_a[k];
+                    sum_den += 1.0 / mtx_a[k];
+                }
+            }
+            gamma = sum_num / sum_den;
+            for(k = 0; k < memb.ncol; ++k) {
+                val = (gamma - mtx_b[k]) / mtx_a[k];
+                if(dgt(val, 0.0)) {
+                    changed = !deq(val, get(&memb, i, k));
+                    set(&memb, i, k, val);
+                } else {
+                    set(&memb, i, k, 0.0);
+                    set_v[k] = false;
+                    changed = true;
+                }
+            }
+        }
+    } while(changed);
+}
+
 void update_memb_constr(st_matrix *dmatrix, double alpha) {
     size_t c;
     size_t e;
@@ -131,7 +206,7 @@ void update_memb_constr(st_matrix *dmatrix, double alpha) {
         if(!set_a_c[i]) {
             for(k = 0; k < memb.ncol; ++k) {
                 set_v[i][k] = true;
-                set_a[i][k] *= 2.0;
+                mtx_a[i][k] *= 2.0;
                 val = 0.0;
                 if(constr[i]) {
                     for(e = 0; e < constr[i]->ml->size; ++e) {
@@ -146,7 +221,7 @@ void update_memb_constr(st_matrix *dmatrix, double alpha) {
                         obj = constr[i]->mnl->get[e];
                         val += get(&memb, obj, k);
                     }
-                    val *= 2.0;
+//                    val *= 2.0;
                 }
                 mtx_b[i][k] = alpha * val;
             }
@@ -198,7 +273,7 @@ void update_memb_constr(st_matrix *dmatrix, double alpha) {
     }
 }
 
-void update_memb_constr_(st_matrix *dmatrix, double alpha) {
+void update_memb_constr_old(st_matrix *dmatrix, double alpha) {
     size_t c;
     size_t e;
     size_t i;
@@ -254,7 +329,7 @@ void update_memb_constr_(st_matrix *dmatrix, double alpha) {
                         obj = constr[i]->mnl->get[e];
                         val += get(&memb, obj, k);
                     }
-                    val *= 2.0;
+//                    val *= 2.0;
                 }
                 mtx_b[i][k] = alpha * val;
             }
@@ -341,7 +416,7 @@ double constr_adequacy(st_matrix *dmatrix, double alpha) {
                 for(c = 0; c < memb.ncol; ++c) {
                     for(k = 0; k < memb.ncol; ++k) {
                         if(c != k) {
-                            adeq += get(&memb, obj, c) *
+                            adeq += get(&memb, i, c) *
                                         get(&memb, obj, k);
                         }
                     }
@@ -350,13 +425,16 @@ double constr_adequacy(st_matrix *dmatrix, double alpha) {
             for(e = 0; e < constr[i]->mnl->size; ++e) {
                 obj = constr[i]->mnl->get[e];
                 for(c = 0; c < memb.ncol; ++c) {
-                    adeq += get(&memb, obj, c) * get(&memb, obj, c);
+                    adeq += get(&memb, i, c) * get(&memb, obj, c);
                 }
             }
         }
     }
     return adeq;
 }
+
+double prev_adeq_unconstr;
+double prev_adeq_constr;
 
 double adequacy(st_matrix *dmatrix, double mfuz, double alpha) {
     size_t e;
@@ -382,6 +460,16 @@ double adequacy(st_matrix *dmatrix, double mfuz, double alpha) {
     double cadeq = constr_adequacy(dmatrix, alpha);
     if(debug) {
         printf("[Debug]Adequacy: %.15lf %.15lf\n", adeq, cadeq);
+        if(prev_adeq_unconstr && dgt(adeq, prev_adeq_unconstr)) {
+            printf("[Debug] current unconstrained adequacy is greater"
+                    " than previous.\n");
+        }
+        if(prev_adeq_constr && dgt(cadeq, prev_adeq_constr)) {
+            printf("[Debug] current constrained adequacy is greater "
+                    "than previous.\n");
+        }
+        prev_adeq_unconstr = adeq;
+        prev_adeq_constr = cadeq;
     }
     return adeq + cadeq;
 }
@@ -409,6 +497,8 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
     int clustc = memb.ncol;
     int medoids_card = medoids_ncol;
     int dmatrixc = weights.ncol;
+    prev_adeq_unconstr = 0.0;
+    prev_adeq_constr = 0.0;
 
     init_weights(&weights);
     print_weights(&weights);
@@ -431,13 +521,15 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         if(verbose) {
             print_medoids(medoids, clustc, dmatrixc, medoids_card);
         }
-        // no need to check for first it in this model
-        if(debug && it) {
+        if(debug) {
             cur_step_adeq = adequacy(dmatrix, mfuz, alpha);
-            adeq_diff = prev_step_adeq - cur_step_adeq;
-            if(adeq_diff < 0.0) {
-                printf("[Warn] current step adequacy is greater than "
-                        "previous (%.15lf)\n", - adeq_diff);
+            // no need to check for first it in this model
+            if(it) {
+                adeq_diff = prev_step_adeq - cur_step_adeq;
+                if(dlt(adeq_diff, 0.0)) {
+                    printf("[Warn] current step adequacy is greater than "
+                            "previous (%.15lf)\n", - adeq_diff);
+                }
             }
             prev_step_adeq = cur_step_adeq;
         }
@@ -449,7 +541,7 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         if(debug) {
             cur_step_adeq = adequacy(dmatrix, mfuz, alpha);
             adeq_diff = prev_step_adeq - cur_step_adeq;
-            if(adeq_diff < 0.0) {
+            if(dlt(adeq_diff, 0.0)) {
                 printf("[Warn] current step adequacy is greater than "
                         "previous (%.15lf)\n", - adeq_diff);
             }
@@ -464,7 +556,7 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         if(debug) {
             cur_step_adeq = cur_adeq;
             adeq_diff = prev_step_adeq - cur_step_adeq;
-            if(adeq_diff < 0.0) {
+            if(dlt(adeq_diff, 0.0)) {
                 printf("[Warn] current step adequacy is greater than "
                         "previous (%.15lf)\n", - adeq_diff);
             }
@@ -472,8 +564,9 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         }
         adeq_diff = prev_adeq - cur_adeq;
         printf("\nAdequacy: %.15lf (%.15lf)\n", cur_adeq, adeq_diff);
-        if(debug) {
-            if(adeq_diff < 0.0) {
+        // no need to check for first it in this model
+        if(debug && it) {
+            if(dlt(adeq_diff, 0.0)) {
                 printf("[Warn] current iteration adequacy is greater "
                         "than previous (%.15lf)\n", - adeq_diff);
             }
