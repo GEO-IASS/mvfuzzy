@@ -153,7 +153,7 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         if(debug) {
             cur_step_adeq = adequacy(dmatrix, mfuz);
             adeq_diff = prev_step_adeq - cur_step_adeq;
-            if(adeq_diff < 0.0) {
+            if(dlt(adeq_diff, 0.0)) {
                 printf("[Warn] current step adequacy is greater than "
                         "previous (%.15lf)\n", - adeq_diff);
             }
@@ -167,7 +167,7 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         if(debug) {
             cur_step_adeq = adequacy(dmatrix, mfuz);
             adeq_diff = prev_step_adeq - cur_step_adeq;
-            if(adeq_diff < 0.0) {
+            if(dlt(adeq_diff, 0.0)) {
                 printf("[Warn] current step adequacy is greater than "
                         "previous (%.15lf)\n", - adeq_diff);
             }
@@ -181,7 +181,7 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         if(debug) {
             cur_step_adeq = cur_adeq;
             adeq_diff = prev_step_adeq - cur_step_adeq;
-            if(adeq_diff < 0.0) {
+            if(dlt(adeq_diff, 0.0)) {
                 printf("[Warn] current step adequacy is greater than "
                         "previous (%.15lf)\n", - adeq_diff);
             }
@@ -190,7 +190,7 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         adeq_diff = prev_adeq - cur_adeq;
         printf("\nAdequacy: %.15lf (%.15lf)\n", cur_adeq, adeq_diff);
         if(debug) {
-            if(adeq_diff < 0.0) {
+            if(dlt(adeq_diff, 0.0)) {
                 printf("[Warn] current step adequacy is greater than "
                         "previous (%.15lf)\n", - adeq_diff);
             }

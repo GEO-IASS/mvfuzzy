@@ -42,14 +42,14 @@ void update_weights_md(st_matrix *weights, st_matrix *memb,
     size_t i;
     size_t j;
     size_t k;
-    size_t abovec;
+    size_t belowc;
     double v_vals[dmatrixc];
     double chi;
     double above;
     double val;
     double dsum;
     for(k = 0; k < clustc; ++k) {
-        abovec = 0;
+        belowc = 0;
         chi = 1.0;
         above = 1.0;
         for(j = 0; j < dmatrixc; ++j) {
@@ -64,13 +64,13 @@ void update_weights_md(st_matrix *weights, st_matrix *memb,
             v_vals[j] = val;
             if(val <= theta) {
                 chi *= get(weights, k, j);
+                ++belowc;
             } else {
-                ++abovec;
                 above *= val;
             }
         }
         chi = 1.0 / chi;
-        val = 1.0 / (double) abovec;
+        val = 1.0 / (double) (dmatrixc - belowc);
         val = pow(chi * above, val);
         for(j = 0; j < dmatrixc; ++j) {
             if(v_vals[j] > theta) {
