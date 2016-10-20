@@ -56,7 +56,12 @@ typedef struct objnval {
 static int objnval_cmp(const void *p1, const void *p2) {
 	const objnval *a = (const objnval *) p1;
 	const objnval *b = (const objnval *) p2;
-	return (a->val > b->val) - (a->val < b->val);
+    if(dlt(a->val, b->val)) {
+        return -1;
+    } else if(dgt(a->val, b->val)) {
+        return 1;
+    }
+    return 0;
 }
 
 void update_medoids_lw(size_t ***medoids, int medoids_card,

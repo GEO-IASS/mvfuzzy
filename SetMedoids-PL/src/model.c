@@ -47,7 +47,7 @@ void update_memb(st_matrix *dmatrix, double mfuzval) {
             }
         }
         if(zeroc) {
-            new_memb = 1.0 / zeroc;
+            new_memb = 1.0 / (double) zeroc;
             for(k = 0; k < memb.ncol; ++k) {
                 if(deq(vals[k], 0.0)) {
                     set(&memb, i, k, new_memb);
