@@ -1,0 +1,26 @@
+178
+3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+13
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist01.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist02.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist03.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist04.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist05.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist06.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist07.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist08.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist09.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist10.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist11.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist12.data
+/home/dppb/Documents/university/masters/data/datasets/wine/wine-dist13.data
+out-wine.txt
+3
+50
+150
+2.0
+1e-10
+3
+0.02
+0.1
+1.0

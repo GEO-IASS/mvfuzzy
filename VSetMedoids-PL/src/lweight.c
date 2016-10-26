@@ -50,8 +50,6 @@ void update_weights_md(st_matrix *weights, st_matrix *memb,
     double dsum;
     for(k = 0; k < clustc; ++k) {
         belowc = 0;
-        chi = 1.0;
-        above = 1.0;
         for(j = 0; j < dmatrixc; ++j) {
             val = 0.0;
             for(i = 0; i < objc; ++i) {
@@ -62,16 +60,21 @@ void update_weights_md(st_matrix *weights, st_matrix *memb,
                 val += pow(get(memb, i, k), mfuz) * dsum;
             }
             v_vals[j] = val;
-            if(val <= theta) {
-                chi *= get(weights, k, j);
+            if(!dgt(val, theta)) {
                 ++belowc;
-            } else {
-                above *= val;
             }
         }
-        chi = 1.0 / chi;
-        val = 1.0 / (double) (dmatrixc - belowc);
-        val = pow(chi * above, val);
+        chi = 1.0;
+        above = 1.0;
+        val = 1.0 / ((double) (dmatrixc - belowc));
+        for(j = 0; j < dmatrixc; ++j) {
+            if(dgt(v_vals[j], theta)) {
+                above *= pow(v_vals[j], val);
+            } else {
+                chi *= pow(get(weights, k, j), val);
+            }
+        }
+        val = (1.0 / chi) * above;
         for(j = 0; j < dmatrixc; ++j) {
             if(v_vals[j] > theta) {
                 set(weights, k, j, val / v_vals[j]);
@@ -90,14 +93,14 @@ void update_weights_smd(st_matrix *weights, st_matrix *memb,
     size_t i;
     size_t j;
     size_t k;
-    size_t abovec;
+    size_t belowc;
     double v_vals[dmatrixc];
     double chi;
     double above;
     double val;
     double dsum;
     for(k = 0; k < clustc; ++k) {
-        abovec = 0;
+        belowc = 0;
         chi = 1.0;
         above = 1.0;
         for(j = 0; j < dmatrixc; ++j) {
@@ -110,15 +113,15 @@ void update_weights_smd(st_matrix *weights, st_matrix *memb,
                 val += pow(get(memb, i, k), mfuz) * dsum;
             }
             v_vals[j] = val;
-            if(val <= theta) {
-                chi *= get(weights, k, j);
-            } else {
-                ++abovec;
+            if(dgt(val, theta)) {
                 above *= val;
+            } else {
+                chi *= get(weights, k, j);
+                ++belowc;
             }
         }
         chi = 1.0 / chi;
-        val = 1.0 / (double) abovec;
+        val = 1.0 / ((double) (dmatrixc - belowc));
         val = pow(chi * above, val);
         for(j = 0; j < dmatrixc; ++j) {
             if(v_vals[j] > theta) {

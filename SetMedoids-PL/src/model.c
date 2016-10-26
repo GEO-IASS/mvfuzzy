@@ -191,8 +191,8 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
         printf("\nAdequacy: %.15lf (%.15lf)\n", cur_adeq, adeq_diff);
         if(debug) {
             if(dlt(adeq_diff, 0.0)) {
-                printf("[Warn] current step adequacy is greater than "
-                        "previous (%.15lf)\n", - adeq_diff);
+                printf("[Warn] current iteration adequacy is greater"
+                        " than previous (%.15lf)\n", - adeq_diff);
             }
         }
         if(adeq_diff < epsilon) {
