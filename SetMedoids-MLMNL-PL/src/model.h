@@ -41,6 +41,9 @@ void print_env();
 double run(st_matrix *dmatrix, int max_iter, double epsilon,
         double theta, double mfuz, double alpha);
 
+// Computes and prints various statistical indexes
+void compute_idxs(st_matrix *dmatrix, int *labels, double mfuz);
+
 // Frees weights, medoids and memb
 void model_free();
 

@@ -390,6 +390,106 @@ double run(st_matrix *dmatrix, int max_iter, double epsilon,
     return cur_adeq;
 }
 
+// computes a matrix containing the distance of each object to each
+// cluster prototype.
+st_matrix* medoid_dist(st_matrix *dmatrix) {
+    st_matrix *ret = malloc(sizeof(st_matrix));
+    init_st_matrix(ret, memb.nrow, memb.ncol);
+    size_t e;
+    size_t i;
+    size_t j;
+    size_t k;
+    double val;
+    double sumd;
+    for(i = 0; i < memb.nrow; ++i) {
+        for(k = 0; k < memb.ncol; ++k) {
+            val = 0.0;
+            for(j = 0; j < weights.ncol; ++j) {
+                sumd = 0.0;
+                for(e = 0; e < medoids_ncol; ++e) {
+                    sumd += get(&dmatrix[j], i, medoids[k][e]);
+                }
+                val += get(&weights, k, j) * sumd;
+            }
+            set(ret, i, k, val);
+        }
+    }
+    return ret;
+}
+
+// aggregates all distance matrices into a single one by summing
+// them up taking into account each cluster weight.
+st_matrix* agg_dmatrix(st_matrix *dmatrix) {
+    st_matrix *ret = malloc(sizeof(st_matrix));
+    init_st_matrix(ret, memb.nrow, memb.nrow);
+    size_t e;
+    size_t i;
+    size_t j;
+    size_t k;
+    double val;
+    for(i = 0; i < memb.nrow; ++i) {
+        for(e = 0; e < memb.nrow; ++e) {
+            val = 0.0;
+            for(k = 0; k < memb.ncol; ++k) {
+                for(j = 0; j < weights.ncol; ++j) {
+                    val += get(&weights, k, j) *
+                            get(&dmatrix[j], i, e);
+                }
+            }
+            set(ret, i, e, val);
+        }
+    }
+    return ret;
+}
+
+void compute_idxs(st_matrix *dmatrix, int *labels, double mfuz) {
+    print_header(" Indexes ", HEADER_SIZE);
+    int *pred = defuz(&memb);
+    printf("CR: %.10lf\n", corand(labels, pred, memb.nrow));
+    st_matrix *confmtx = confusion(labels, pred, memb.nrow);
+    printf("F-measure: %.10lf\n", fmeasure(confmtx, false));
+    printf("Partition coefficient: %.10lf\n", partcoef(&memb));
+    printf("Modified partition coefficient: %.10lf\n",
+            modpcoef(&memb));
+    printf("Partition entropy: %.10lf (max: %.10lf)\n",
+            partent(&memb), log(memb.ncol));
+    st_matrix *md_dist = medoid_dist(dmatrix);
+    printf("Average intra cluster distance: %.10lf\n",
+            avg_intra_dist(&memb, md_dist, mfuz));
+    print_header(" Confusion matrix (class x cluster) ",
+            HEADER_SIZE);
+    print_st_matrix(confmtx, 0, true);
+
+    print_header(" Predicted groups for objects ", HEADER_SIZE);
+    st_matrix *groups = asgroups(pred, memb.nrow, memb.ncol);
+    print_groups(groups);
+    st_matrix *agg_dmtx = agg_dmatrix(dmatrix);
+    silhouet *csil = crispsil(groups, agg_dmtx);
+    print_header("Crisp silhouette", HEADER_SIZE);
+    print_silhouet(csil);
+    silhouet *fsil = fuzzysil(csil, groups, &memb, mfuz);
+    print_header("Fuzzy silhouette", HEADER_SIZE);
+    print_silhouet(fsil);
+    silhouet *ssil = simplesil(pred, md_dist);
+    print_header("Simple silhouette", HEADER_SIZE);
+    print_silhouet(ssil);
+    free(pred);
+    free_st_matrix(confmtx);
+    free(confmtx);
+    free_st_matrix(groups);
+    free(groups);
+    free_st_matrix(agg_dmtx);
+    free(agg_dmtx);
+    free_st_matrix(md_dist);
+    free(md_dist);
+    free_silhouet(csil);
+    free(csil);
+    free_silhouet(fsil);
+    free(fsil);
+    free_silhouet(ssil);
+    free(ssil);
+}
+
 void model_free() {
     if(medoids) {
         size_t k;

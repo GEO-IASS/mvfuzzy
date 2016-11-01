@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
     fclose(cfgfile);
     // reading config file end 
     freopen(out_file_name, "w", stdout);
-	double mfuzval = 1.0 / (mfuz - 1.0);
+//	double mfuzval = 1.0 / (mfuz - 1.0);
     printf("######Config summary:######\n");
     printf("Number of objects: %d\n", objc);
     printf("Number of clusters: %d\n", clustc);
@@ -146,6 +146,8 @@ int main(int argc, char **argv) {
     printf("Best adequacy: %.15lf (on instance %d)\n", best_adeq,
             best_inst);
     print_env();
+    compute_idxs(dmatrix, labels, mfuz);
+    printf("\n");
     model_free();
     if(dmatrix) {
         for(j = 0; j < dmatrixc; ++j) {
